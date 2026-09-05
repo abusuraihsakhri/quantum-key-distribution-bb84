@@ -135,15 +135,24 @@ def bb84_protocol(n_qubits: int, noise_prob: float = 0.0,
                    eavesdrop: bool = False, seed: Optional[int] = None) -> dict:
     """
     Execute the full BB84 protocol.
-    
+
     Args:
-        n_qubits: number of qubits to transmit
-        noise_prob: channel noise probability
+        n_qubits: number of qubits to transmit (must be positive)
+        noise_prob: channel noise probability (0.0 to 1.0)
         eavesdrop: whether Eve is eavesdropping
         seed: random seed for reproducibility
-    
+
     Returns dict with protocol results.
+
+    Raises:
+        ValueError: if parameters are out of valid range
     """
+    if not isinstance(n_qubits, int) or n_qubits < 1:
+        raise ValueError(f"n_qubits must be a positive integer, got {n_qubits}")
+    if not (0.0 <= noise_prob <= 1.0):
+        raise ValueError(f"noise_prob must be between 0.0 and 1.0, got {noise_prob}")
+    if seed is not None and not isinstance(seed, int):
+        raise ValueError(f"seed must be an integer or None, got {type(seed).__name__}")
     if seed is not None:
         random.seed(seed)
     
@@ -269,24 +278,51 @@ def privacy_amplification(bits: List[int], output_length: Optional[int] = None) 
 def calculate_key_rate(n_qubits: int, qber: float) -> float:
     """
     Calculate the theoretical key generation rate.
-    
+
     Rate = 1 - H(QBER) - QBER * log2(3)
     where H is the binary entropy function.
+
+    Args:
+        n_qubits: number of qubits (must be positive)
+        qber: quantum bit error rate (0.0 to 1.0)
+
+    Returns:
+        Key generation rate (0.0 to 1.0)
+
+    Raises:
+        ValueError: if parameters are out of valid range
     """
+    if not isinstance(n_qubits, int) or n_qubits < 1:
+        raise ValueError(f"n_qubits must be a positive integer, got {n_qubits}")
+    if not (0.0 <= qber <= 1.0):
+        raise ValueError(f"qber must be between 0.0 and 1.0, got {qber}")
     if qber <= 0 or qber >= 1:
         return 0.0
-    
+
     # Binary entropy
     h = -qber * math.log2(qber) - (1 - qber) * math.log2(1 - qber)
-    
+
     # Key rate (simplified)
     rate = max(0, 1 - h - qber * math.log2(3))
-    
+
     return rate
 
 
 def binary_entropy(p: float) -> float:
-    """Binary entropy function H(p) = -p*log2(p) - (1-p)*log2(1-p)."""
+    """
+    Binary entropy function H(p) = -p*log2(p) - (1-p)*log2(1-p).
+
+    Args:
+        p: probability (0.0 to 1.0)
+
+    Returns:
+        Binary entropy value (0.0 to 1.0)
+
+    Raises:
+        ValueError: if p is out of valid range
+    """
+    if not (0.0 <= p <= 1.0):
+        raise ValueError(f"p must be between 0.0 and 1.0, got {p}")
     if p <= 0 or p >= 1:
         return 0.0
     return -p * math.log2(p) - (1 - p) * math.log2(1 - p)
@@ -298,9 +334,24 @@ def eavesdrop_analysis(n_qubits: int = 1000, n_trials: int = 10,
                         seed: int = 42) -> dict:
     """
     Analyze the effect of eavesdropping on QBER.
-    
+
     Runs multiple trials with and without eavesdropping to compare QBER.
+
+    Args:
+        n_qubits: number of qubits per trial (must be positive)
+        n_trials: number of trials to run (must be positive)
+        seed: random seed for reproducibility
+
+    Returns:
+        Dict with analysis results
+
+    Raises:
+        ValueError: if parameters are out of valid range
     """
+    if not isinstance(n_qubits, int) or n_qubits < 1:
+        raise ValueError(f"n_qubits must be a positive integer, got {n_qubits}")
+    if not isinstance(n_trials, int) or n_trials < 1:
+        raise ValueError(f"n_trials must be a positive integer, got {n_trials}")
     random.seed(seed)
     
     no_eve_qbers = []
@@ -338,7 +389,22 @@ def protocol_statistics(n_qubits: int = 1000, n_trials: int = 100,
                          seed: int = 42) -> dict:
     """
     Gather statistics over multiple BB84 protocol runs.
+
+    Args:
+        n_qubits: number of qubits per trial (must be positive)
+        n_trials: number of trials to run (must be positive)
+        seed: random seed for reproducibility
+
+    Returns:
+        Dict with statistics results
+
+    Raises:
+        ValueError: if parameters are out of valid range
     """
+    if not isinstance(n_qubits, int) or n_qubits < 1:
+        raise ValueError(f"n_qubits must be a positive integer, got {n_qubits}")
+    if not isinstance(n_trials, int) or n_trials < 1:
+        raise ValueError(f"n_trials must be a positive integer, got {n_trials}")
     random.seed(seed)
     
     sifted_lengths = []

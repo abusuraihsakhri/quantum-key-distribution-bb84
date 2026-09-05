@@ -293,3 +293,76 @@ class TestCLI:
     def test_rate_command(self):
         from cli import main
         assert main(["rate", "--qber", "0.05"]) == 0
+
+    def test_audit_command(self):
+        from cli import main
+        assert main(["audit", "--task-id", "TEST-001"]) == 0
+
+    def test_chat_command(self):
+        from cli import main
+        assert main(["chat", "Explain", "BB84"]) == 0
+
+    def test_verify_audit_command(self):
+        from cli import main
+        assert main(["verify-audit"]) == 0
+
+    def test_serve_command_help(self):
+        from cli import main
+        with pytest.raises(SystemExit):
+            main(["serve", "--help"])
+
+
+# ─── Input Validation Tests ────────────────────────────────────────────────
+
+class TestInputValidation:
+    def test_bb84_negative_qubits_raises(self):
+        with pytest.raises(ValueError, match="n_qubits must be a positive integer"):
+            bb84_protocol(-1)
+
+    def test_bb84_zero_qubits_raises(self):
+        with pytest.raises(ValueError, match="n_qubits must be a positive integer"):
+            bb84_protocol(0)
+
+    def test_bb84_noise_out_of_range_raises(self):
+        with pytest.raises(ValueError, match="noise_prob must be between 0.0 and 1.0"):
+            bb84_protocol(100, noise_prob=1.5)
+
+    def test_bb84_negative_noise_raises(self):
+        with pytest.raises(ValueError, match="noise_prob must be between 0.0 and 1.0"):
+            bb84_protocol(100, noise_prob=-0.1)
+
+    def test_bb84_invalid_seed_raises(self):
+        with pytest.raises(ValueError, match="seed must be an integer"):
+            bb84_protocol(100, seed="not-a-seed")
+
+    def test_calculate_key_rate_negative_qubits_raises(self):
+        with pytest.raises(ValueError, match="n_qubits must be a positive integer"):
+            calculate_key_rate(-1, 0.05)
+
+    def test_calculate_key_rate_qber_out_of_range_raises(self):
+        with pytest.raises(ValueError, match="qber must be between 0.0 and 1.0"):
+            calculate_key_rate(100, 1.5)
+
+    def test_binary_entropy_out_of_range_raises(self):
+        with pytest.raises(ValueError, match="p must be between 0.0 and 1.0"):
+            binary_entropy(1.5)
+
+    def test_binary_entropy_negative_raises(self):
+        with pytest.raises(ValueError, match="p must be between 0.0 and 1.0"):
+            binary_entropy(-0.1)
+
+    def test_eavesdrop_analysis_negative_qubits_raises(self):
+        with pytest.raises(ValueError, match="n_qubits must be a positive integer"):
+            eavesdrop_analysis(n_qubits=-1)
+
+    def test_eavesdrop_analysis_zero_trials_raises(self):
+        with pytest.raises(ValueError, match="n_trials must be a positive integer"):
+            eavesdrop_analysis(n_trials=0)
+
+    def test_protocol_statistics_negative_qubits_raises(self):
+        with pytest.raises(ValueError, match="n_qubits must be a positive integer"):
+            protocol_statistics(n_qubits=-1)
+
+    def test_protocol_statistics_zero_trials_raises(self):
+        with pytest.raises(ValueError, match="n_trials must be a positive integer"):
+            protocol_statistics(n_trials=0)
