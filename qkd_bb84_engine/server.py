@@ -1,5 +1,5 @@
 """
-FastAPI REST API Server for BB84 & E91 Quantum Key Distribution Simulation & Eavesdrop Agent.
+Legacy FastAPI endpoint for generic numeric threshold demonstration.
 """
 from typing import Dict, Any
 from .models import FrontierPayload
@@ -14,9 +14,9 @@ def create_app():
         from pydantic import BaseModel
 
         app = FastAPI(
-            title="BB84 & E91 Quantum Key Distribution Simulation & Eavesdrop Agent",
-            description="Simulates polarization-state BB84 QKD, calculates Quantum Bit Error Rate (QBER < 11%), and executes cascade error correction.",
-            version="2.0.0-FRONTIER",
+            title="Legacy Threshold Audit Demo",
+            description="Generic threshold audit endpoint; not a BB84 simulation or QKD security assessment.",
+            version="2.0.0",
         )
 
         class TaskRequest(BaseModel):
