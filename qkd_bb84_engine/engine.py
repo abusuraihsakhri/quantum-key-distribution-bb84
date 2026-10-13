@@ -417,3 +417,37 @@ def protocol_statistics(n_qubits: int = 1000, n_trials: int = 100,
         'false_alarm_rate': sum(detection_rates) / len(detection_rates),
         'theoretical_sifted_fraction': 0.5,  # ~50% of bases match
     }
+
+
+class FrontierDomainEngine:
+    """Legacy generic metric evaluator (independent of the BB84 simulation)."""
+
+    @staticmethod
+    def evaluate_primary_parameter(value):
+        if value > 25:
+            return {
+                "summary": "Primary metric above threshold",
+                "details": f"Primary metric {value} exceeds 25",
+                "remediation": "Review the metric and threshold",
+            }
+        return None
+
+    @staticmethod
+    def evaluate_secondary_kinetics(value, critical_flag):
+        if critical_flag or value > 12:
+            return {
+                "summary": "Secondary metric escalation",
+                "details": f"Secondary metric {value}; critical flag {critical_flag}",
+                "remediation": "Review secondary metric and escalation flag",
+            }
+        return None
+
+    @staticmethod
+    def audit_specification_conformance(status, attributes):
+        if any(token in str(status).upper() for token in ("DISCORDANT", "ANOMALY", "FAIL", "REJECT")):
+            return {
+                "summary": "Descriptor anomaly",
+                "details": f"Descriptor: {status}",
+                "remediation": "Review the descriptor",
+            }
+        return None
