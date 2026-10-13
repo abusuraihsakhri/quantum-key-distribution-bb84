@@ -83,7 +83,7 @@ def main(argv=None):
                 primary_metric=float(r.get("primary_metric", 15.0)),
                 secondary_metric=float(r.get("secondary_metric", 5.0)),
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=str(r.get("is_critical_flag", "")).strip().lower() in ("1", "true", "yes", "y"),
             )
             dossier = coordinator.process(payload)
             row_dict = dict(r)
@@ -108,6 +108,9 @@ def main(argv=None):
             if app:
                 print(f"Starting BB84 & E91 Quantum Key Distribution Simulation & Eavesdrop Agent on http://{args.host}:{args.port}")
                 uvicorn.run(app, host=args.host, port=args.port)
+            else:
+                print("FastAPI is not installed", file=sys.stderr)
+                return 1
         except ImportError:
             print("FastAPI / uvicorn not installed. Run 'pip install fastapi uvicorn'")
             return 1

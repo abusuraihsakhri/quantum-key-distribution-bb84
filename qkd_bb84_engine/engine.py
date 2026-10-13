@@ -69,7 +69,7 @@ def qubit_state(bit: int, basis: str) -> List[complex]:
         raise ValueError(f"Unknown basis: {basis}")
 
 
-def measure_qubit(state: List[complex], basis: str) -> int:
+def measure_qubit(state: List[complex], basis: str, rng=None) -> int:
     """
     Measure a qubit in the given basis.
     
@@ -87,14 +87,14 @@ def measure_qubit(state: List[complex], basis: str) -> int:
         raise ValueError(f"Unknown basis: {basis}")
     
     # Born rule: collapse to |0⟩ or |1⟩ in measurement basis
-    if random.random() < prob0:
+    if (rng or random).random() < prob0:
         return 0
     else:
         return 1
 
 
 def apply_channel(state: List[complex], noise_prob: float = 0.0,
-                   eavesdrop: bool = False) -> List[complex]:
+                   eavesdrop: bool = False, rng=None) -> List[complex]:
     """
     Simulate quantum channel with optional noise and eavesdropping.
     
@@ -105,12 +105,12 @@ def apply_channel(state: List[complex], noise_prob: float = 0.0,
     
     # Eavesdropping: Eve measures in random basis and resends
     if eavesdrop:
-        eve_basis = random.choice(['+', 'x'])
-        eve_result = measure_qubit(result, eve_basis)
+        eve_basis = (rng or random).choice(['+', 'x'])
+        eve_result = measure_qubit(result, eve_basis, rng=rng)
         result = qubit_state(eve_result, eve_basis)
     
     # Noise: simple bit flip channel
-    if noise_prob > 0 and random.random() < noise_prob:
+    if noise_prob > 0 and (rng or random).random() < noise_prob:
         result = apply_x_gate(result)
     
     return result
@@ -153,22 +153,21 @@ def bb84_protocol(n_qubits: int, noise_prob: float = 0.0,
         raise ValueError(f"noise_prob must be between 0.0 and 1.0, got {noise_prob}")
     if seed is not None and not isinstance(seed, int):
         raise ValueError(f"seed must be an integer or None, got {type(seed).__name__}")
-    if seed is not None:
-        random.seed(seed)
+    rng = random.Random(seed) if seed is not None else random
     
     # Step 1: Alice generates random bits and bases
-    alice_bits = [random.randint(0, 1) for _ in range(n_qubits)]
-    alice_bases = [random.choice(['+', 'x']) for _ in range(n_qubits)]
+    alice_bits = [rng.randint(0, 1) for _ in range(n_qubits)]
+    alice_bases = [rng.choice(['+', 'x']) for _ in range(n_qubits)]
     
     # Step 2: Alice prepares qubits
     alice_qubits = [qubit_state(b, b_) for b, b_ in zip(alice_bits, alice_bases)]
     
     # Step 3: Transmit through channel
-    received_qubits = [apply_channel(q, noise_prob, eavesdrop) for q in alice_qubits]
+    received_qubits = [apply_channel(q, noise_prob, eavesdrop, rng=rng) for q in alice_qubits]
     
     # Step 4: Bob measures in random bases
-    bob_bases = [random.choice(['+', 'x']) for _ in range(n_qubits)]
-    bob_bits = [measure_qubit(q, b) for q, b in zip(received_qubits, bob_bases)]
+    bob_bases = [rng.choice(['+', 'x']) for _ in range(n_qubits)]
+    bob_bits = [measure_qubit(q, b, rng=rng) for q, b in zip(received_qubits, bob_bases)]
     
     # Step 5: Basis reconciliation (sifting)
     sifted_alice = []
@@ -192,7 +191,7 @@ def bb84_protocol(n_qubits: int, noise_prob: float = 0.0,
         final_bob = sifted_bob
     else:
         sample_size = sifted_key_length // 2
-        sample_indices = random.sample(range(sifted_key_length), sample_size)
+        sample_indices = rng.sample(range(sifted_key_length), sample_size)
         
         errors_found = 0
         for idx in sample_indices:
@@ -202,21 +201,31 @@ def bb84_protocol(n_qubits: int, noise_prob: float = 0.0,
         qber = errors_found / sample_size if sample_size > 0 else 0.0
         
         # Remove sampled bits from key
-        remaining_indices = [i for i in range(sifted_key_length) if i not in set(sample_indices)]
+        sampled = set(sample_indices)
+        remaining_indices = [i for i in range(sifted_key_length) if i not in sampled]
         final_alice = [sifted_alice[i] for i in remaining_indices]
         final_bob = [sifted_bob[i] for i in remaining_indices]
     
-    # Step 7: Privacy amplification (simplified - hash-based)
-    if len(final_alice) > 0:
+    # This educational simulation has no error-correction stage or security proof.
+    # Never expose keys when the channel is unestimated or the raw strings differ.
+    if sample_size == 0:
+        abort_reason = "Insufficient sifted bits for error estimation"
+    elif qber > 0.11:
+        abort_reason = "Estimated QBER exceeds the illustrative 11% cutoff"
+    elif final_alice != final_bob:
+        abort_reason = "Residual key mismatch; error correction is not implemented"
+    elif not final_alice:
+        abort_reason = "No residual key material"
+    else:
+        abort_reason = None
+    if abort_reason is None:
         final_key_alice = privacy_amplification(final_alice)
         final_key_bob = privacy_amplification(final_bob)
     else:
         final_key_alice = []
         final_key_bob = []
-    
-    # Check if keys match
-    keys_match = final_key_alice == final_key_bob
-    
+    keys_match = abort_reason is None and final_key_alice == final_key_bob
+
     return {
         'n_qubits': n_qubits,
         'alice_bits': alice_bits,
@@ -235,51 +244,36 @@ def bb84_protocol(n_qubits: int, noise_prob: float = 0.0,
         'final_key_bob': final_key_bob,
         'final_key_length': len(final_key_alice),
         'keys_match': keys_match,
-        'eavesdrop_detected': qber > 0.11,
+        'aborted': abort_reason is not None,
+        'abort_reason': abort_reason,
+        'parameter_estimation_possible': sample_size > 0,
+        'eavesdrop_detected': sample_size > 0 and qber > 0.11,
         'noise_prob': noise_prob,
         'eavesdrop': eavesdrop,
     }
 
 
 def privacy_amplification(bits: List[int], output_length: Optional[int] = None) -> List[int]:
-    """
-    Privacy amplification using universal hashing.
-    
-    Reduces the key length to remove potential information leaked to Eve.
-    Uses a simple hash function based on XOR of subsets.
-    """
+    """Educational SHAKE-256 compression, NOT universal-hash QKD privacy amplification."""
+    if any(bit not in (0, 1) for bit in bits):
+        raise ValueError("bits must be 0 or 1")
     if not bits:
+        if output_length not in (None, 0):
+            raise ValueError("Cannot extract key bits from empty input")
         return []
-    
     if output_length is None:
         output_length = max(1, len(bits) // 2)
-    
-    # Convert bits to bytes for hashing
-    bit_string = ''.join(str(b) for b in bits)
-    byte_data = bit_string.encode('utf-8')
-    
-    # Use SHA-256 hash
-    hash_obj = hashlib.sha256(byte_data)
-    hash_bytes = hash_obj.digest()
-    
-    # Extract output_length bits from hash
-    result = []
-    for i in range(output_length):
-        byte_idx = i // 8
-        bit_idx = i % 8
-        if byte_idx < len(hash_bytes):
-            result.append((hash_bytes[byte_idx] >> (7 - bit_idx)) & 1)
-        else:
-            result.append(0)
-    
-    return result
+    if not isinstance(output_length, int) or not 0 <= output_length <= len(bits):
+        raise ValueError("output_length must not exceed input bit count")
+    digest = hashlib.shake_256(bytes(bits)).digest((output_length + 7) // 8)
+    return [(digest[i // 8] >> (7 - i % 8)) & 1 for i in range(output_length)]
 
 
 def calculate_key_rate(n_qubits: int, qber: float) -> float:
     """
     Calculate the theoretical key generation rate.
 
-    Rate = 1 - H(QBER) - QBER * log2(3)
+    Rate = max(0, 1 - 2 H(QBER)) (idealized asymptotic bound)
     where H is the binary entropy function.
 
     Args:
@@ -296,16 +290,10 @@ def calculate_key_rate(n_qubits: int, qber: float) -> float:
         raise ValueError(f"n_qubits must be a positive integer, got {n_qubits}")
     if not (0.0 <= qber <= 1.0):
         raise ValueError(f"qber must be between 0.0 and 1.0, got {qber}")
-    if qber <= 0 or qber >= 1:
+    # Idealized asymptotic BB84 bound per sifted bit (not finite-key secure).
+    if qber >= 0.5:
         return 0.0
-
-    # Binary entropy
-    h = -qber * math.log2(qber) - (1 - qber) * math.log2(1 - qber)
-
-    # Key rate (simplified)
-    rate = max(0, 1 - h - qber * math.log2(3))
-
-    return rate
+    return max(0.0, 1.0 - 2.0 * binary_entropy(qber))
 
 
 def binary_entropy(p: float) -> float:
@@ -352,19 +340,19 @@ def eavesdrop_analysis(n_qubits: int = 1000, n_trials: int = 10,
         raise ValueError(f"n_qubits must be a positive integer, got {n_qubits}")
     if not isinstance(n_trials, int) or n_trials < 1:
         raise ValueError(f"n_trials must be a positive integer, got {n_trials}")
-    random.seed(seed)
+    rng = random.Random(seed)
     
     no_eve_qbers = []
     eve_qbers = []
     
     for trial in range(n_trials):
         # Without eavesdropping
-        result_no_eve = bb84_protocol(n_qubits, noise_prob=0.0, eavesdrop=False)
+        result_no_eve = bb84_protocol(n_qubits, noise_prob=0.0, eavesdrop=False, seed=rng.randrange(2**63))
         if result_no_eve['sample_size'] > 0:
             no_eve_qbers.append(result_no_eve['qber'])
         
         # With eavesdropping
-        result_eve = bb84_protocol(n_qubits, noise_prob=0.0, eavesdrop=True)
+        result_eve = bb84_protocol(n_qubits, noise_prob=0.0, eavesdrop=True, seed=rng.randrange(2**63))
         if result_eve['sample_size'] > 0:
             eve_qbers.append(result_eve['qber'])
     
@@ -405,7 +393,7 @@ def protocol_statistics(n_qubits: int = 1000, n_trials: int = 100,
         raise ValueError(f"n_qubits must be a positive integer, got {n_qubits}")
     if not isinstance(n_trials, int) or n_trials < 1:
         raise ValueError(f"n_trials must be a positive integer, got {n_trials}")
-    random.seed(seed)
+    rng = random.Random(seed)
     
     sifted_lengths = []
     qbers = []
@@ -413,7 +401,7 @@ def protocol_statistics(n_qubits: int = 1000, n_trials: int = 100,
     detection_rates = []
     
     for _ in range(n_trials):
-        result = bb84_protocol(n_qubits, noise_prob=0.0, eavesdrop=False)
+        result = bb84_protocol(n_qubits, noise_prob=0.0, eavesdrop=False, seed=rng.randrange(2**63))
         sifted_lengths.append(result['sifted_key_length'])
         if result['sample_size'] > 0:
             qbers.append(result['qber'])
@@ -429,3 +417,37 @@ def protocol_statistics(n_qubits: int = 1000, n_trials: int = 100,
         'false_alarm_rate': sum(detection_rates) / len(detection_rates),
         'theoretical_sifted_fraction': 0.5,  # ~50% of bases match
     }
+
+
+class FrontierDomainEngine:
+    """Legacy generic metric evaluator (independent of the BB84 simulation)."""
+
+    @staticmethod
+    def evaluate_primary_parameter(value):
+        if value > 25:
+            return {
+                "summary": "Primary metric above threshold",
+                "details": f"Primary metric {value} exceeds 25",
+                "remediation": "Review the metric and threshold",
+            }
+        return None
+
+    @staticmethod
+    def evaluate_secondary_kinetics(value, critical_flag):
+        if critical_flag or value > 12:
+            return {
+                "summary": "Secondary metric escalation",
+                "details": f"Secondary metric {value}; critical flag {critical_flag}",
+                "remediation": "Review secondary metric and escalation flag",
+            }
+        return None
+
+    @staticmethod
+    def audit_specification_conformance(status, attributes):
+        if any(token in str(status).upper() for token in ("DISCORDANT", "ANOMALY", "FAIL", "REJECT")):
+            return {
+                "summary": "Descriptor anomaly",
+                "details": f"Descriptor: {status}",
+                "remediation": "Review the descriptor",
+            }
+        return None

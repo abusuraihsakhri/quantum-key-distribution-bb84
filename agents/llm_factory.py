@@ -1,5 +1,5 @@
 """
-Inference Engine supporting local Ollama, Claude, OpenAI, and deterministic Mock with Zero-PHI checks.
+Deterministic mock responses with basic identifier screening; external LLM providers are not implemented.
 """
 from typing import Dict, Any, Optional
 from .base import PHIGuard
@@ -11,21 +11,15 @@ class MockLLM:
 
     def invoke(self, prompt: str) -> str:
         PHIGuard.assert_no_phi(prompt)
-        return f"[{self.system_name} Deterministic Verification Engine]: Clinical & scientific analysis verified for query: '{prompt[:60]}...'. Parameters evaluated under NIST FIPS 203/204/205 / ISO/IEC 17825 Standards."
+        return f"[{self.system_name} mock mode]: No language-model analysis was performed. Query received: '{prompt[:60]}...'. Use the BB84 simulator for quantitative results."
 
 
 class LLMFactory:
-    """Creates configured LLM client instances with zero-PHI protection."""
+    """Selects a supported deterministic mock model."""
 
     @staticmethod
     def create(provider: str = "mock", system_name: str = "Quantum Key Distribution Bb84"):
         prov = str(provider).lower()
         if prov in ["mock", "deterministic", "test"]:
             return MockLLM(system_name)
-        elif prov in ["ollama", "local"]:
-            return MockLLM(system_name)
-        elif prov in ["claude", "anthropic"]:
-            return MockLLM(system_name)
-        elif prov in ["openai", "gpt4"]:
-            return MockLLM(system_name)
-        return MockLLM(system_name)
+        raise ValueError("Only deterministic mock mode is implemented")

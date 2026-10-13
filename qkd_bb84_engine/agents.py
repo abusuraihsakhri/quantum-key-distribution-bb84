@@ -1,5 +1,5 @@
 """
-Distributed Component Coordination & Executive Hierarchy for BB84 & E91 Quantum Key Distribution Simulation & Eavesdrop Agent.
+Legacy numeric-threshold coordinator; independent of the BB84 simulator.
 Domain: Quantum Cryptography
 """
 import uuid
@@ -105,6 +105,6 @@ class QKDCoordinator:
         if "status" in q or "ledger" in q:
             return f"BB84 & E91 Quantum Key Distribution Simulation & Eavesdrop Agent currently managing {len(self.execution_ledger)} execution tasks in air-gapped memory."
         elif "standard" in q or "spec" in q:
-            return "Active runtime operating strictly according to ETSI QKD GS 004 / BB84 Protocol specifications."
+            return "Legacy generic threshold demonstration; no formal QKD conformance assessment is performed."
         else:
-            return f"BB84 & E91 Quantum Key Distribution Simulation & Eavesdrop Agent executive coordinator online. Zero-telemetry on-premises surveillance active."
+            return f"Legacy coordinator available in this Python process (deterministic demo)."

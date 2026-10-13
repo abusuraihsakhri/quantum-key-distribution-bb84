@@ -1,0 +1,38 @@
+name: Deploy BB84 browser simulator
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare static distribution
+        run: |
+          mkdir -p site/web site/qkd_bb84_engine
+          cp index.html site/index.html
+          cp web/app.js site/web/app.js
+          cp qkd_bb84_engine/engine.py site/qkd_bb84_engine/engine.py
+          test -s site/index.html
+          test -s site/web/app.js
+          test -s site/qkd_bb84_engine/engine.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
