@@ -23,9 +23,3 @@ class LLMFactory:
         if prov in ["mock", "deterministic", "test"]:
             return MockLLM(system_name)
         raise ValueError("Only deterministic mock mode is implemented")
-
-        elif prov in ["claude", "anthropic"]:
-            return MockLLM(system_name)
-        elif prov in ["openai", "gpt4"]:
-            return MockLLM(system_name)
-        return MockLLM(system_name)
